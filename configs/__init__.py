@@ -8,6 +8,12 @@ from configs.labels import (
     encode_threats,
     decode_threats,
 )
+from configs.normalization import (
+    NEURALCHEMY_2B_INTENT_MAP,
+    NEURALCHEMY_2A_CATEGORY_MAP,
+    normalize_neuralchemy_2b_intent,
+    normalize_neuralchemy_2a_category,
+)
 
 __all__ = [
     "THREAT_LABELS",
@@ -17,4 +23,8 @@ __all__ = [
     "VALID_SEVERITIES",
     "encode_threats",
     "decode_threats",
+    "NEURALCHEMY_2B_INTENT_MAP",
+    "NEURALCHEMY_2A_CATEGORY_MAP",
+    "normalize_neuralchemy_2b_intent",
+    "normalize_neuralchemy_2a_category",
 ]

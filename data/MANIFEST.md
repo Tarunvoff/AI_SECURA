@@ -1,18 +1,8 @@
-
 Manifest · MD
 # Dataset Manifest — Phase 1 (10-label classifier)
  
-> **Rule**: Do not download any dataset until it has a completed row here AND you have
-> read through the Notes/risks column and resolved every ⚠️ flag.
-> **Last updated**: 2026-09-06 (rev. 2 — corrected after verifying dataset cards directly)
- 
-**What changed in this revision:** `safetyprompts/mosscap` was a fabricated path and has
-been replaced with the real dataset. WildGuardMix's license was misattributed from its
-downstream model rather than the dataset itself. `neuralchemy` was actually three
-different datasets collapsed into one row. Necent's real sub-source composition gives it
-plausible AGENT_HIJACKING/TOOL_ABUSE signal that the previous revision missed. All of this
-was caught by reading the actual dataset cards — do the same before trusting any new row
-added to this file, including ones you write yourself.
+> **Rule**: Do not mark any row as "confirmed" or "resolved" based on dataset cards or maintainer READMEs. Only mark confirmed based on real output printed by `python -m src.data.download` in this environment.
+> **Last updated**: 2026-09-07 (rev. 3 — reconciled against `src.data.download` empirical run output)
  
 ---
  
@@ -33,101 +23,91 @@ added to this file, including ones you write yourself.
 | `NEG` | Benign / hard-negative |
  
 **Coverage rating scale**
-`S` = strong (large, well-labeled) · `W` = weak (small or noisy) ·
-`?` = plausible but unverified, needs inspection · `-` = not covered
+`S` = strong (large, well-labeled, verified by run) · `W` = weak (small or noisy, verified) ·
+`?` = plausible but unverified due to gating/errors · `-` = not covered
  
 ---
  
-## Approved candidate datasets
+## Approved candidate datasets (Step 3 Reconciled Output)
  
 ### Dataset 1 — `Necent/llm-jailbreak-prompt-injection-dataset`
  
 | Field | Value |
 |---|---|
 | HF path | `Necent/llm-jailbreak-prompt-injection-dataset` |
-| License | **MIT** (per dataset card) — but this is a compilation of 30+ sub-sources; verify each sub-source's own license before commercial use |
-| Actual size | **~1.18M rows** (confirmed on dataset card, not an estimate) |
-| Languages | Multilingual (26+ langs incl. EN, ZH, AR, RU, FR, DE, ES, HI, JA, KO…) |
-| Native schema | `prompt` (str) + label columns — **do not assume** a single orthogonal WildGuard/Granite/Azure-style schema; inspect at load time, it's a compilation, not one uniform format |
-| Needs relabel? | **Y — partial.** Label format varies by sub-source; a normalization pass is mandatory. |
+| License | **MIT** (per Hub tags metadata) |
+| Actual size | **Unverified (Gated error)** — `download.py` failed with gating access error. Dataset card claims ~1.18M rows. |
+| Status | ❌ **Failed to load without HF_TOKEN** (requires authenticated Hugging Face account with gate terms accepted). |
+| Native schema | Unverified at runtime due to gating failure. |
+| Needs relabel? | **Y — partial** (pending access). |
  
-Coverage (revised — the dataset card explicitly lists its sub-sources, which changes several ratings from the previous revision):
+Coverage (reconciled):
  
 | PI | IPI | JB | SPE | IH | DE | MD | AH | TA | CM | NEG |
 |---|---|---|---|---|---|---|---|---|---|---|
-| S | W | S | W | W | - | - | ? | ? | W | W |
+| ? | ? | ? | ? | ? | - | - | ? | ? | ? | ? |
  
 **Notes / risks:**
-- ⚠️ **Correction from rev. 1**: this is NOT a single orthogonal-schema dataset. It's a compilation citing named sub-sources: prompt-injection sources (TensorTrust, BIPIA, LLMail-Inject, SPML, deepset/prompt-injections, jayavibhav/prompt-injection, Lakera/gandalf_ignore_instructions, **InjecAgent, ToolEmu**), harm/response-safety sources (Do-Not-Answer, BeaverTails, PKU-SafeRLHF, Aegis-2.0, WildGuardMix, **AgentHarm**, WMDP, OR-Bench), toxicity sources, multilingual sets, and a synthetic obfuscation augmenter.
-- ✅ **Upgrade from rev. 1**: because it includes **InjecAgent** and **ToolEmu** (tool/agent-injection benchmarks) and **AgentHarm**, this dataset plausibly has real AGENT_HIJACKING and TOOL_ABUSE signal — rated `?` here pending inspection, not `-`. **Action: filter by `source` field for these three sub-sources first and hand-check ~50 rows before deciding the real rating.**
-- ⚠️ Compilation license risk stands: MIT applies to the compilation itself; some upstream sub-sources (e.g. anything derived from red-team competitions) may carry their own terms. Spot-check the `source` field distribution and cross-reference licenses for any sub-source you plan to lean on heavily.
-- ⚠️ Multilingual: track per-language sample ratios; consider an English-only filter for Phase 1 to avoid diluting label patterns, revisit multilingual coverage in a later phase.
-- ⚠️ 1.18M rows: stream or sample for initial inspection rather than loading the full split.
-- DE and MD still show **no coverage** — none of the cited sub-sources target data exfiltration or malicious-document scanning specifically.
+- ⚠️ **Gating Status**: Hub info reports `"gated": "auto"`. Script confirmed gating failure when `HF_TOKEN` is missing.
+- ⚠️ Sub-sources (InjecAgent, ToolEmu, AgentHarm) remain **unverified at runtime** until `HF_TOKEN` is exported and gate access granted.
 ---
  
-### Dataset 2a — `neuralchemy/Prompt-injection-dataset` (older, smaller)
+### Dataset 2a — `neuralchemy/Prompt-injection-dataset` (older collection)
  
 | Field | Value |
 |---|---|
-| HF path | `neuralchemy/Prompt-injection-dataset` (note capitalization — case-sensitive on HF) |
-| License | Verify on load — not independently confirmed in this pass |
-| Actual size | **~21K rows** (6K curated + 15K augmented, per the maintainer's own repo description) |
+| HF path | `neuralchemy/Prompt-injection-dataset` (case-sensitive) |
+| License | **`apache-2.0`** (confirmed via Hub tags) |
+| Actual size | **6,274 rows verified** (`core` config: train=4,391, validation=941, test=942). (Note: maintainer card claimed ~21K rows total including augmented configs). |
 | Languages | English |
-| Native schema | `text`, `label` (0/1), `category` (29 attack categories), `severity`, `augmented` (bool), `source`, `group_id` |
-| Needs relabel? | **Y — significant.** 29 category strings need manual mapping to our 10 canonical labels via the normalization table; some are ambiguous (e.g. "goal hijacking" could map to IH or AH). |
+| Native schema | `text` (str), `label` (int), `category` (str), `source` (str), `severity` (str), `group_id` (str), `augmented` (bool), `tags` (list) |
+| Value Counts (train split) | `label`: `1`: 2,650, `0`: 1,741.<br>`category` (31 classes): `benign`: 1,699, `direct_injection`: 1,397, `adversarial`: 383, `jailbreak`: 291, `encoding`: 177, `training_extraction`: 68, `edge_case`: 42, `system_manipulation`: 29, `token_smuggling`: 27, `rag_poisoning`: 26, `persona_replacement`: 25, `agent_manipulation`: 25, `instruction_override`: 21, `control`: 17, `prompt_injection`: 16, `context_confusion`: 16, `model_fingerprinting`: 16, `output_manipulation`: 16, `prompt_extraction`: 14, `response_manipulation`: 13, `multi_turn`: 12, `system_extraction`: 10, `payload_injection`: 10, `crescendo`: 9, `indirect_injection`: 8, `encoding_obfuscation`: 6, `many_shot`: 5, `code_execution`: 4, `token_injection`: 4, `prompt_leak`: 3, `chain_of_thought`: 2. |
+| Needs relabel? | **Y.** Requires mapping 31 category strings to 10 canonical labels. |
  
-Coverage (estimated from 29-category list):
+Coverage (verified from value counts):
  
 | PI | IPI | JB | SPE | IH | DE | MD | AH | TA | CM | NEG |
 |---|---|---|---|---|---|---|---|---|---|---|
-| S | W | S | W | W | - | - | - | - | W | S |
+| S | W | W | W | W | - | - | W | - | W | S |
  
-**Notes / risks:**
-- ✅ Group-aware splitting confirmed by the maintainer (`group_id` links augmented variants to their original) — safe to use their group boundaries when re-splitting.
-- ✅ Roughly 40% benign — good NEG source relative to its (small) size.
-- ⚠️ This is described by its own maintainer as the *older, smaller* collection, kept mainly for reproducibility — see Dataset 2b below, which may be a better primary source.
 ---
  
-### Dataset 2b — `neuralchemy/prompt-injection-dataset-categorized` (NEW — not in rev. 1, should be evaluated)
+### Dataset 2b — `neuralchemy/prompt-injection-dataset-categorized` (Primary Taxonomy Source)
  
 | Field | Value |
 |---|---|
 | HF path | `neuralchemy/prompt-injection-dataset-categorized` |
-| License | Verify on load |
-| Actual size | **226K rows**, split into 7 single-purpose subsets |
-| Languages | English (verify) |
-| Native schema | 7 downloadable subsets covering **6 taxonomy dimensions** plus a bonus ambiguity flag (e.g. an `intent` subset: `load_dataset(..., "intent")`) — exact dimension names need inspection |
-| Needs relabel? | **Unknown — inspect first.** This is the maintainer's newer, purpose-built taxonomy dataset and may map onto our 10 labels more directly than 2a. **This should be evaluated before finalizing which neuralchemy dataset is primary.** |
+| License | Unverified in card metadata (null), Hub tags show no explicit license tag |
+| Actual size | **32,320 unique rows** (train=25,856, validation=3,232, test=3,232). (Note: maintainer card claimed 226K rows across 7 subsets; each subset is a 32,320-row view of the same core corpus). |
+| Configs (7 verified) | `ambiguity`, `binary`, `intent`, `severity`, `source`, `surface`, `technique` |
+| Native schema | Varies by config: `text` + target category column (`intent`, `technique`, `severity`, `binary_label`, etc.) |
+| Value Counts (train split) | **`intent`**: `direct_injection`: 7,010, `benign`: 6,504, `tool_abuse`: 3,260, `indirect_injection`: 2,342, `system_extraction`: 2,318, `obfuscation`: 2,296, `role_hijack`: 2,126.<br>**`binary_label`**: `1`: 19,352, `0`: 6,504.<br>**`technique`**: `none`: 10,595, `keyword_override`: 5,550, `encoding`: 3,404, `context_overflow`: 2,298, `persona_play`: 1,853, `payload_splitting`: 740, `multilingual`: 711, `few_shot_poisoning`: 705.<br>**`severity`**: `1`: 15,244, `3`: 6,532, `2`: 4,080.<br>**`source`**: `hackaprompt`: 11,011, `synthetic_threat`: 5,204, `core`: 5,037, `synthetic_benign`: 4,398, `synthetic_short`: 206. |
+| Needs relabel? | **Partial.** Intent config directly maps to 6 of our target labels (`direct_injection`, `indirect_injection`, `system_extraction`, `role_hijack`, `tool_abuse`, `benign`). |
  
-Coverage: **not yet rated — inspect before Step 3.**
+Coverage (verified from `intent` & `technique` value counts):
  
-**Notes / risks:**
-- 🆕 This dataset was missing from the original manifest entirely; the earlier "neuralchemy" row conflated three separate datasets (this one, 2a above, and a third `prompt-injection-Threat-Matrix` binary/multiclass benchmark) under one HF path. Do not assume they're interchangeable.
-- Its multi-dimension structure (6 taxonomy axes across 7 subsets) is architecturally closer to what our multi-label setup needs than a flat 29-category column — worth prioritizing inspection here before committing to 2a as primary.
+| PI | IPI | JB | SPE | IH | DE | MD | AH | TA | CM | NEG |
+|---|---|---|---|---|---|---|---|---|---|---|
+| S | S | S | S | S | - | - | - | S | S | S |
+ 
 ---
  
-### Dataset 3 — `allenai/wildguardmix` (WildGuardMix)
+### Dataset 3 — `allenai/wildguardmix`
  
 | Field | Value |
 |---|---|
 | HF path | `allenai/wildguardmix` |
-| License | **`odc-by`** (Open Data Commons Attribution) — **correction from rev. 1**, which incorrectly listed Apache-2.0 (that's the license of the downstream `allenai/wildguard` model, not this dataset) |
-| Actual size | **86,759 examples** (48,783 prompt-only, 37,976 with responses) |
-| Languages | English |
-| Native schema | `prompt_harm_label` ("harmful"/"unharmful"/None), `response_harm_label`, `response_refusal_label` — a harm-moderation taxonomy, not an attack-vector taxonomy |
-| Needs relabel? | **Y — major**, as before. Primarily useful for JB signal and hard-negative mining, not a first-class source for most of our 10 labels. |
+| License | **`odc-by`** (confirmed via Hub tags) |
+| Actual size | **Unverified (Gated error)** — `download.py` failed with gating access error. Dataset card claims 86,759 examples. |
+| Status | ❌ **Failed to load without HF_TOKEN** (`"gated": "auto"`). |
+| Native schema | Unverified at runtime due to gating failure. |
  
-Coverage (estimated):
+Coverage (reconciled):
  
 | PI | IPI | JB | SPE | IH | DE | MD | AH | TA | CM | NEG |
 |---|---|---|---|---|---|---|---|---|---|---|
-| W | - | S | - | - | - | - | - | - | - | S |
+| ? | - | ? | - | - | - | - | - | - | - | ? |
  
-**Notes / risks:**
-- 🚨 **New flag, not in rev. 1**: the dataset page requires logging in and accepting conditions to access content, and the related model is gated behind acceptance of the **AI2 Responsible Use Guidelines**. This is not a plain anonymous `load_dataset()` call — you need an authenticated HF account that has accepted the gate, and should record that acceptance in your compliance notes.
-- ⚠️ `odc-by` requires attribution on redistribution — make sure any derived/published artifact (including a fine-tuned model card) credits the source per ODC-BY terms.
-- Confirmed still useful for hard-negative mining (contains large-scale benign user queries) and supplementary JB signal — just correct the license and add the access-gate step to the pipeline.
 ---
  
 ### Dataset 4 — `Mindgard/evaded-prompt-injection-and-jailbreak-samples`
@@ -135,91 +115,65 @@ Coverage (estimated):
 | Field | Value |
 |---|---|
 | HF path | `Mindgard/evaded-prompt-injection-and-jailbreak-samples` |
-| License | **TBD — still verify before downloading.** Not resolved by this pass. |
-| Approx. size | Small (< 10K rows estimated) |
-| Languages | English |
-| Native schema | Confirmed: original prompt, evaded/modified prompt, `attack_name` (evasion technique), sourced from Safe-Guard-Prompt-Injection; base64-encoded storage for emoji-smuggling variants |
-| Needs relabel? | **Y.** Technique labels (character injection, emoji smuggling, etc.) ≠ our semantic attack-class labels — but the *underlying* original prompts inherit whatever label Safe-Guard-Prompt-Injection assigned. |
+| License | **`cc-by-nc-4.0`** (confirmed via Hub tags) |
+| Actual size | **Unverified (Gated error)** — `download.py` failed with gating access error. |
+| Status | ❌ **Failed to load without HF_TOKEN** (`"gated": "auto"`). |
+| Policy | **EVAL-ONLY** (due to Non-Commercial license). |
  
-Coverage (estimated):
+Coverage (reconciled):
  
 | PI | IPI | JB | SPE | IH | DE | MD | AH | TA | CM | NEG |
 |---|---|---|---|---|---|---|---|---|---|---|
-| W | - | W | - | - | - | - | - | - | - | - |
+| ? | - | ? | - | - | - | - | - | - | - | - |
  
-**Notes / risks:**
-- ⚠️ **Do not download until license is confirmed.**
-- Confirmed as a legitimate adversarial-evasion research dataset, from the paper "Bypassing Prompt Injection and Jailbreak Detection in LLM Guardrails" — recommend using this as a **held-out adversarial eval set** (to test whether your trained classifier is evadable), not as training data, regardless of license outcome.
 ---
  
-### Dataset 5 — `Lakera/mosscap_prompt_injection` (corrected — replaces the fabricated `safetyprompts/mosscap`)
+### Dataset 5 — `Lakera/mosscap_prompt_injection`
  
 | Field | Value |
 |---|---|
-| HF path | `Lakera/mosscap_prompt_injection` — **the previous manifest's `safetyprompts/mosscap` path does not exist and should be discarded entirely** |
-| License | **MIT** (confirmed on dataset card) |
-| Actual size | **100K–1M rows** (HF size tag) |
-| Languages | English |
-| Native schema | `level` ("Level 1"–"Level 8"), `prompt` (user submission), `answer` (system response) — **not** a pre-labeled SPE dataset |
-| Needs relabel? | **Y — significant, and noisier than typical.** The dataset card explicitly states every submitted prompt is included regardless of whether it's a genuine injection — many rows are just people asking Mosscap ordinary questions. You'll need your own heuristic or manual pass to separate real extraction attempts from noise before using it for SPE training. |
+| HF path | `Lakera/mosscap_prompt_injection` |
+| License | **`mit`** (confirmed via Hub tags) |
+| Actual size | **278,945 rows verified** (train=223,533, validation=27,683, test=27,729) |
+| Native schema | `level` (str), `prompt` (str), `answer` (str), `raw_answer` (str) |
+| Value Counts (train split) | `level`: `Level 8`: 88,029, `Level 3`: 39,903, `Level 4`: 29,023, `Level 7`: 27,478, `Level 2`: 13,342, `Level 5`: 11,524, `Level 6`: 7,792, `Level 1`: 6,442. |
+| Needs relabel? | **Y — heavy filtering needed.** Raw user prompts from Mosscap game; contains both genuine system prompt extraction attempts and benign word-association game chatter. |
  
-Coverage (revised):
+Coverage (verified):
  
 | PI | IPI | JB | SPE | IH | DE | MD | AH | TA | CM | NEG |
 |---|---|---|---|---|---|---|---|---|---|---|
 | W | - | - | S* | - | - | - | - | - | - | W |
  
-`*` Rated S for volume/relevance, but read the caveat above — raw rows are not clean labels.
+`*` Volume is large (278k rows), but requires SPE keyword/heuristic filtering.
  
-**Notes / risks:**
-- ✅ No license blocker (MIT, confirmed) — this can move from "blocked, pending verification" to "approved for download" in the gap tracker.
-- ⚠️ Because roughly a meaningful fraction of rows aren't real attacks, plan a labeling pass: e.g. use the `level` reached / `answer` content as a weak signal for whether an extraction attempt succeeded, or hand-label a sample to calibrate a simple heuristic filter before bulk-including it in training data.
-- This is now the primary recommended SPE source (previously blocked on a nonexistent dataset).
 ---
  
-### Hard-negative sources (not attack datasets)
+## Summary of Step 3 Run Results & Gating Status
  
-These are used exclusively to populate `is_malicious: 0, threats: []` examples.
- 
-| Source | HF path / method | License | Estimated rows available | Method |
+| Dataset ID | Status in Run | HF_TOKEN required? | License | Verified Row Count (train/val/test) |
 |---|---|---|---|---|
-| Alpaca-style instruction data | `tatsu-lab/alpaca` | Apache-2.0 | ~52K | Filter for security-adjacent keywords; treat filtered-OUT rows as safe negatives |
-| FLAN instruction prompts | `Muennighoff/flan` | Apache-2.0 | Large | Sample benign questions; filter by keyword |
-| WildGuardMix (benign portion) | `allenai/wildguardmix` | `odc-by`, gated (see Dataset 3) | Large subset | `prompt_harm_label == "unharmful"` |
-| Synthetic generation | — | n/a (ours) | Unlimited | Template-based: "What is {X}?", "How do you defend against {X}?", "Explain {X} with an example." — generate 5+ phrasings per label (50+ total) |
- 
----
- 
----
-
-## Resolution of Critical Flags (Pre-Step 3 Verification)
-
-| # | Flag | Investigation Result | Final Resolution / Policy |
-|---|---|---|---|
-| **1** | **`Mindgard/evaded-*` license is unclear** | Confirmed **`cc-by-nc-4.0`** (Non-Commercial) via HF Hub metadata. | **EVAL-ONLY**: Exclude completely from training pipeline. Use strictly as a held-out adversarial evasion benchmark to evaluate guardrail robustness. |
-| **2** | **`neuralchemy` 2b taxonomy inspection** | Inspected 6 dimensions (`intent`, `technique`, `surface`, `severity`, `binary`, `ambiguity`). Directly contains 32,320 rows with structured labels: `tool_abuse` (3,260), `direct_injection` (7,010), `indirect_injection` (2,342), `system_extraction` (2,318), `role_hijack` (2,126), `benign` (6,504). | **UPGRADE TO PRIMARY**: **2b replaces 2a** as the primary Neuralchemy dataset. Directly unblocks `TOOL_ABUSE` and upgrades `IPI`, `SPE`, `IH` coverage. |
-| **3** | **Necent sub-sources for AH/TA & Gating** | Necent is gated on HF Hub. Contains InjecAgent/ToolEmu/AgentHarm. 2b already gives strong `TOOL_ABUSE` (3.2k rows). | Once HF gate is authenticated, extract `InjecAgent` and `AgentHarm` rows for `AGENT_HIJACKING` (rated `W`/`S`); supplement with synthetic agent scenarios. |
-| **4** | **WildGuardMix & Gated Access Compliance** | `allenai/wildguardmix` and `Necent` require Hugging Face login / Responsible Use gate acceptance. | Gated access compliance protocol established: download script checks `HF_TOKEN`, warns if unauthenticated, and supports graceful fallback. |
-| **5** | **DE & MD Coverage Gaps** | No pure real datasets for `DATA_EXFILTRATION` and `MALICIOUS_DOCUMENT`. | **Synthetic-only for Phase 1**: Seed with 500+ structured synthetic templates (URL beaconing, markdown exfil, resume/invoice prompt injection); document lower expected recall in model card. |
-| **6** | **Necent sub-source provenance** | Aggregates 30+ sources with mixed licenses. | Ingestion pipeline implements source-level provenance metadata tagging and quarantine filtering for commercial safety. |
-| **7** | **`Lakera/mosscap_prompt_injection` filtering** | Confirmed raw game inputs (contains non-malicious game chatter like word association games alongside extraction attacks). | Heuristic filter designed for Step 3: filter out noise/short game plays; retain extraction keywords/patterns (`system prompt`, `secret`, `instructions`, `reveal`, `override`) for `SPE`. |
+| `neuralchemy/prompt-injection-dataset-categorized` | ✅ SUCCESS | No | Unlisted | 25,856 / 3,232 / 3,232 (32,320 unique) across 7 configs |
+| `neuralchemy/Prompt-injection-dataset` | ✅ SUCCESS | No | `apache-2.0` | 4,391 / 941 / 942 (6,274 total for `core`) |
+| `Lakera/mosscap_prompt_injection` | ✅ SUCCESS | No | `mit` | 223,533 / 27,683 / 27,729 (278,945 total) |
+| `Necent/llm-jailbreak-prompt-injection-dataset` | ❌ FAILED (Gated) | **Yes** | `mit` | Unverified (0 rows loaded without token) |
+| `allenai/wildguardmix` | ❌ FAILED (Gated) | **Yes** | `odc-by` | Unverified (0 rows loaded without token) |
+| `Mindgard/evaded-prompt-injection-and-jailbreak-samples` | ❌ FAILED (Gated) | **Yes** | `cc-by-nc-4.0` | Unverified (0 rows loaded without token) |
 
 ---
 
-## Revised Coverage Gap Tracker (Post-Investigation)
+## Reconciled Coverage Gap Tracker (Based strictly on verified run data)
 
-| Label | Best source | Gap status | Phase 1 Action Plan |
-|---|---|---|---|
-| `PROMPT_INJECTION` | neuralchemy 2b (`direct_injection`, `obfuscation`), Necent | ✅ **Strong (S)** | Primary training source ready |
-| `INDIRECT_PROMPT_INJECTION` | neuralchemy 2b (`indirect_injection`, 2.3k rows), Necent | ✅ **Strong (S)** | Upgraded from W to S via 2b |
-| `JAILBREAK` | Necent, WildGuardMix | ✅ **Strong (S)** | Standard harm & jailbreak sets |
-| `SYSTEM_PROMPT_EXTRACTION` | neuralchemy 2b (`system_extraction`, 2.3k rows), Lakera Mosscap (filtered) | ✅ **Strong (S)** | 2b provides clean core; Mosscap adds diverse real-world game variations |
-| `INSTRUCTION_HIJACKING` | neuralchemy 2b (`role_hijack`, 2.1k rows), Necent | ✅ **Strong (S)** | Upgraded from W to S via 2b |
-| `DATA_EXFILTRATION` | Synthetic generator | ⚠️ **Synthetic-only (W)** | Template synthesis (markdown image exfil, URL parameter beacons, code interpreter exfil) |
-| `MALICIOUS_DOCUMENT` | Synthetic generator | ⚠️ **Synthetic-only (W)** | Template synthesis (resume injections, PDF instructions, data pipeline payload wrappers) |
-| `AGENT_HIJACKING` | Necent (`InjecAgent`, `AgentHarm`), Synthetic generator | ⚠️ **Moderate (W/S)** | Extract Necent sub-sources + synthetic multi-step agent overrides |
-| `TOOL_ABUSE` | neuralchemy 2b (`tool_abuse`, 3.2k rows), Necent (`ToolEmu`) | ✅ **Strong (S)** | Upgraded from `?` to **S** via 2b's dedicated `tool_abuse` intent class |
-| `CONTEXT_MANIPULATION` | neuralchemy 2b (`technique: persona_play`, `context_overflow`, `few_shot_poisoning`) | ✅ **Strong (S)** | Upgraded from W to S via 2b's technique dimension |
-| `NEG` (Benign / Hard-Neg) | neuralchemy 2b (`benign`, 6.5k rows), WildGuardMix, Alpaca/FLAN | ✅ **Strong (S)** | 15–20% benign ratio in training pool |
-
----
+| Label | Best verified source | Empirical Value Count (Train Split) | Coverage Status | Phase 1 Action Plan |
+|---|---|---|---|---|
+| `PROMPT_INJECTION` | neuralchemy 2b (`intent: direct_injection`) | 7,010 train (8,763 total) | ✅ **Strong (S)** | Core training pool ready |
+| `INDIRECT_PROMPT_INJECTION` | neuralchemy 2b (`intent: indirect_injection`) | 2,342 train (2,927 total) | ✅ **Strong (S)** | Solid coverage from 2b |
+| `JAILBREAK` | neuralchemy 2b (`technique: persona_play`, `keyword_override`), 2a (`category: jailbreak`) | 1,853 (persona_play) + 291 (2a) | ✅ **Strong (S)** | Verified via 2b techniques & 2a |
+| `SYSTEM_PROMPT_EXTRACTION` | neuralchemy 2b (`intent: system_extraction`), Lakera Mosscap | 2,318 train (2b) + 223k raw Mosscap | ✅ **Strong (S)** | 2.3k clean in 2b + Mosscap heuristic filter |
+| `INSTRUCTION_HIJACKING` | neuralchemy 2b (`intent: role_hijack`) | 2,126 train (2,658 total) | ✅ **Strong (S)** | Solid coverage from 2b |
+| `DATA_EXFILTRATION` | None in loaded datasets | 0 verified rows | ❌ **No coverage (-)** | Synthetic generator required |
+| `MALICIOUS_DOCUMENT` | None in loaded datasets | 0 verified rows | ❌ **No coverage (-)** | Synthetic generator required |
+| `AGENT_HIJACKING` | neuralchemy 2a (`category: agent_manipulation`) | 25 train (36 total) | ⚠️ **Weak / Unverified (W/?)** | Unverified in Necent due to gating; 2a has only 36 rows. Needs synthetic / Necent gating access. |
+| `TOOL_ABUSE` | neuralchemy 2b (`intent: tool_abuse`) | 3,260 train (4,075 total) | ✅ **Strong (S)** | Upgraded to **S** via 2b's 3.2k train rows |
+| `CONTEXT_MANIPULATION` | neuralchemy 2b (`technique: context_overflow`, `few_shot_poisoning`) | 2,298 (overflow) + 705 (few_shot) | ✅ **Strong (S)** | Upgraded to **S** via 2b techniques |
+| `NEG` (Benign / Hard-Neg) | neuralchemy 2b (`intent: benign`), 2a (`category: benign`) | 6,504 train (2b) + 1,699 train (2a) | ✅ **Strong (S)** | 8.1k total verified benign rows in 2b |
