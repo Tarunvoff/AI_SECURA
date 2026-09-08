@@ -13,6 +13,8 @@ from configs.normalization import (
     NEURALCHEMY_2A_CATEGORY_MAP,
     normalize_neuralchemy_2b_intent,
     normalize_neuralchemy_2a_category,
+    normalize_homoglyphs,
+    should_include_in_training,
 )
 
 __all__ = [
@@ -27,4 +29,6 @@ __all__ = [
     "NEURALCHEMY_2A_CATEGORY_MAP",
     "normalize_neuralchemy_2b_intent",
     "normalize_neuralchemy_2a_category",
+    "normalize_homoglyphs",
+    "should_include_in_training",
 ]
