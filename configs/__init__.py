@@ -15,6 +15,7 @@ from configs.normalization import (
     normalize_neuralchemy_2a_category,
     normalize_homoglyphs,
     should_include_in_training,
+    matches_extraction_intent,
 )
 
 __all__ = [
@@ -31,4 +32,6 @@ __all__ = [
     "normalize_neuralchemy_2a_category",
     "normalize_homoglyphs",
     "should_include_in_training",
+    "matches_extraction_intent",
 ]
+

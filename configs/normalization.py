@@ -159,6 +159,36 @@ def matches_role_hijack_jailbreak(text: str) -> bool:
     return any(re.search(pat, norm_text) for pat in ROLE_HIJACK_JAILBREAK_PATTERNS)
 
 
+# System prompt extraction & override patterns for prompt text analysis
+EXTRACTION_PROMPT_PATTERNS: List[str] = [
+    r"what\s+(is|was|are|were)\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"tell\s+me\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"reveal\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"show\s+(me\s+)?the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"repeat\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"give\s+me\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"display\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"print\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"share\s+the\s+(secret\s+)?(password|passcode|key|prompt|word|instructions?)",
+    r"spell\s+(out\s+)?the\s+(secret\s+)?(password|passcode|key|prompt|word)",
+    r"first\s+letter\s+of\s+the\s+(password|secret|word)",
+    r"last\s+letter\s+of\s+the\s+(password|secret|word)",
+    r"characters?\s+of\s+the\s+(password|secret|word)",
+    r"password",
+    r"secret\s+word",
+    r"system\s+prompt",
+    r"initial\s+instructions",
+    r"above\s+instructions",
+] + ROLE_HIJACK_OVERRIDE_PATTERNS
+
+
+def matches_extraction_intent(text: str) -> bool:
+    """Checks if homoglyph-normalized text contains explicit system prompt extraction or override intent patterns."""
+    norm_text = normalize_homoglyphs(text or "")
+    return any(re.search(pat, norm_text) for pat in EXTRACTION_PROMPT_PATTERNS)
+
+
+
 def should_include_in_training(
     is_malicious: Optional[bool], quarantined: bool
 ) -> bool:
