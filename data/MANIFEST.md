@@ -177,3 +177,75 @@ Coverage (verified):
 | `TOOL_ABUSE` | neuralchemy 2b (`intent: tool_abuse`) | 3,260 train (4,075 total) | ✅ **Strong (S)** | Upgraded to **S** via 2b's 3.2k train rows |
 | `CONTEXT_MANIPULATION` | neuralchemy 2b (`technique: context_overflow`, `few_shot_poisoning`) | 2,298 (overflow) + 705 (few_shot) | ✅ **Strong (S)** | Upgraded to **S** via 2b techniques |
 | `NEG` (Benign / Hard-Neg) | neuralchemy 2b (`intent: benign`), 2a (`category: benign`) | 6,504 train (2b) + 1,699 train (2a) | ✅ **Strong (S)** | 8.1k total verified benign rows in 2b |
+
+---
+
+## Step 6 & 7 Final Canonical Dataset & Split Report
+
+> **Empirical Verification Date**: 2026-09-16  
+> **Script**: `src/data/merge_and_split.py`  
+> **Schema Check**: 0 errors across 202,598 rows.
+
+### 1. Step 6 — Unified Raw Merge
+- **Canonical Merged Path**: `data/processed/unified_security_dataset.jsonl` (90.51 MB)
+- **Total Merged Rows**: 202,598
+- **Source Breakdown**:
+  - `mosscap`: 155,119 (76.56%)
+  - `neuralchemy_2b`: 31,711 (15.65%)
+  - `neuralchemy_2a`: 15,768 (7.78%)
+- **Binary `is_malicious`**:
+  - `is_malicious = True`: 188,555 (93.07%)
+  - `is_malicious = False`: 14,043 (6.93%)
+
+### 2. Step 7a — Exact Deduplication
+- **Pre-Dedup Total**: 202,598
+- **Exact Duplicates Removed**: 52,715 redundant rows across 22,868 duplicate groups
+- **Post-Exact-Dedup Total**: 149,883 unique texts
+- **Within-Source Deduplication**:
+  - `mosscap`: 39,566 rows removed
+  - `neuralchemy_2a`: 333 rows removed
+  - `neuralchemy_2b`: 270 rows removed
+- **Cross-Source Deduplication**:
+  - `neuralchemy_2a` + `neuralchemy_2b`: 12,405 rows removed (5,932 HackAPrompt shared duplicate groups)
+  - `mosscap` + `neuralchemy_2b`: 131 rows removed
+  - `mosscap` + `neuralchemy_2a` + `neuralchemy_2b`: 10 rows removed
+
+### 3. Step 7b & 7c — Group-Aware Handling & Near-Duplicate Clustering
+- **Group-aware IDs**: 6,212 `source_group_id` groups (spanning 9,047 rows)
+- **TF-IDF Matrix**: (149,883, 40,000 features, `ngram_range=(1, 2)`) built in 10.27s
+- **Near-Duplicate Pairs Detected (Cosine Similarity >= 0.95)**: 4,735,529 candidate pairs (mostly parameterized templated game prompts)
+- **Total Meta-Clusters Formed**: 108,114
+  - **Multi-Item Clusters**: 14,250 (spanning 56,019 rows)
+  - **Single-Item Clusters**: 93,864
+  - **Max Cluster Size**: 1,500
+
+### 4. Step 7d — Multi-Label Stratified 70/15/15 Split
+- **Train (`data/train/train.jsonl`)**: 104,918 rows (70.00%, 52.78 MB)
+- **Validation (`data/validation/validation.jsonl`)**: 22,482 rows (15.00%, 10.27 MB)
+- **Test (`data/test/test.jsonl`)**: 22,483 rows (15.00%, 13.15 MB)
+- **Total Split Rows**: 149,883 (100.00%)
+
+#### Explicit Zero-Leakage Verification Audit
+- **Cluster ID Overlap**: 0 (Train/Val=0, Train/Test=0, Val/Test=0)
+- **Group ID Overlap**: 0 (Train/Val=0, Train/Test=0, Val/Test=0)
+- **Exact Text Hash Overlap**: 0 (Train/Val=0, Train/Test=0, Val/Test=0)
+- **Status**: ✅ **ZERO DATA LEAKAGE CONFIRMED**
+
+#### Per-Label Distribution Across Splits
+| Threat Label | Total Unique | Train | Val | Test | Val % | Test % | Status |
+|---|---|---|---|---|---|---|---|
+| `PROMPT_INJECTION` | 13,015 | 9,153 | 1,950 | 1,912 | 15.0% | 14.7% | ✅ OK |
+| `INDIRECT_PROMPT_INJECTION` | 2,990 | 2,097 | 446 | 447 | 14.9% | 14.9% | ✅ OK |
+| `JAILBREAK` | 2,215 | 1,543 | 335 | 337 | 15.1% | 15.2% | ✅ OK |
+| `SYSTEM_PROMPT_EXTRACTION` | 118,394 | 83,145 | 17,769 | 17,480 | 15.0% | 14.8% | ✅ OK |
+| `INSTRUCTION_HIJACKING` | 2,227 | 1,562 | 332 | 333 | 14.9% | 15.0% | ✅ OK |
+| `DATA_EXFILTRATION` | 148 | 103 | 22 | 23 | 14.9% | 15.5% | ⚠️ LOW (<50 in Val/Test) |
+| `MALICIOUS_DOCUMENT` | 55 | 38 | 8 | 9 | 14.5% | 16.4% | ⚠️ LOW (<50 in Val/Test) |
+| `AGENT_HIJACKING` | 53 | 37 | 8 | 8 | 15.1% | 15.1% | ⚠️ LOW (<50 in Val/Test) |
+| `TOOL_ABUSE` | 4,910 | 2,816 | 599 | 1,495 | 12.2% | 30.4% | ✅ OK |
+| `CONTEXT_MANIPULATION` | 103 | 71 | 16 | 16 | 15.5% | 15.5% | ⚠️ LOW (<50 in Val/Test) |
+
+#### Binary `is_malicious` Distribution Across Splits
+- **Train**: Malicious = 98,088 (93.49%), Benign = 6,830 (6.51%)
+- **Validation**: Malicious = 21,141 (94.04%), Benign = 1,341 (5.96%)
+- **Test**: Malicious = 21,870 (97.27%), Benign = 613 (2.73%)

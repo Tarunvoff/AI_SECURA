@@ -25,7 +25,7 @@ ID_TO_THREAT: Dict[int, str] = {idx: label for idx, label in enumerate(THREAT_LA
 NUM_LABELS: int = len(THREAT_LABELS)
 
 # Severity Levels
-VALID_SEVERITIES = {"NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"}
+VALID_SEVERITIES = {"NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"}
 
 
 def encode_threats(threats: Sequence[str]) -> List[float]:

@@ -9,6 +9,9 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List
 
+# Ensure root workspace is on sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from datasets import load_dataset
 from src.data.adapters.neuralchemy_2b_adapter import process_neuralchemy_2b
 from src.data.adapters.neuralchemy_2a_adapter import process_neuralchemy_2a
