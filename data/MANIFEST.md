@@ -219,10 +219,10 @@ Coverage (verified):
   - **Single-Item Clusters**: 93,864
   - **Max Cluster Size**: 1,500
 
-### 4. Step 7d — Multi-Label Stratified 70/15/15 Split
-- **Train (`data/train/train.jsonl`)**: 104,918 rows (70.00%, 52.78 MB)
-- **Validation (`data/validation/validation.jsonl`)**: 22,482 rows (15.00%, 10.27 MB)
-- **Test (`data/test/test.jsonl`)**: 22,483 rows (15.00%, 13.15 MB)
+### 4. Step 7d — Multi-Label Stratified 70/15/15 Split (Rebalanced)
+- **Train (`data/train/train.jsonl`)**: 104,959 rows (70.03%, 52.80 MB)
+- **Validation (`data/validation/validation.jsonl`)**: 22,460 rows (14.99%, 10.26 MB)
+- **Test (`data/test/test.jsonl`)**: 22,464 rows (14.99%, 13.14 MB)
 - **Total Split Rows**: 149,883 (100.00%)
 
 #### Explicit Zero-Leakage Verification Audit
@@ -234,18 +234,18 @@ Coverage (verified):
 #### Per-Label Distribution Across Splits
 | Threat Label | Total Unique | Train | Val | Test | Val % | Test % | Status |
 |---|---|---|---|---|---|---|---|
-| `PROMPT_INJECTION` | 13,015 | 9,153 | 1,950 | 1,912 | 15.0% | 14.7% | ✅ OK |
-| `INDIRECT_PROMPT_INJECTION` | 2,990 | 2,097 | 446 | 447 | 14.9% | 14.9% | ✅ OK |
-| `JAILBREAK` | 2,215 | 1,543 | 335 | 337 | 15.1% | 15.2% | ✅ OK |
-| `SYSTEM_PROMPT_EXTRACTION` | 118,394 | 83,145 | 17,769 | 17,480 | 15.0% | 14.8% | ✅ OK |
-| `INSTRUCTION_HIJACKING` | 2,227 | 1,562 | 332 | 333 | 14.9% | 15.0% | ✅ OK |
-| `DATA_EXFILTRATION` | 148 | 103 | 22 | 23 | 14.9% | 15.5% | ⚠️ LOW (<50 in Val/Test) |
-| `MALICIOUS_DOCUMENT` | 55 | 38 | 8 | 9 | 14.5% | 16.4% | ⚠️ LOW (<50 in Val/Test) |
-| `AGENT_HIJACKING` | 53 | 37 | 8 | 8 | 15.1% | 15.1% | ⚠️ LOW (<50 in Val/Test) |
-| `TOOL_ABUSE` | 4,910 | 2,816 | 599 | 1,495 | 12.2% | 30.4% | ✅ OK |
-| `CONTEXT_MANIPULATION` | 103 | 71 | 16 | 16 | 15.5% | 15.5% | ⚠️ LOW (<50 in Val/Test) |
+| `PROMPT_INJECTION` | 13,015 | 9,113 | 1,950 | 1,952 | 15.0% | 15.0% | ✅ OK |
+| `INDIRECT_PROMPT_INJECTION` | 2,990 | 2,090 | 450 | 450 | 15.1% | 15.1% | ✅ OK |
+| `JAILBREAK` | 2,215 | 1,538 | 338 | 339 | 15.3% | 15.3% | ✅ OK |
+| `SYSTEM_PROMPT_EXTRACTION` | 118,394 | 82,867 | 17,764 | 17,763 | 15.0% | 15.0% | ✅ OK |
+| `INSTRUCTION_HIJACKING` | 2,227 | 1,556 | 335 | 336 | 15.0% | 15.1% | ✅ OK |
+| `DATA_EXFILTRATION` | 148 | 97 | 26 | 25 | 17.6% | 16.9% | ⚠️ LOW (<50 in Val/Test) |
+| `MALICIOUS_DOCUMENT` | 55 | 35 | 10 | 10 | 18.2% | 18.2% | ⚠️ LOW (<50 in Val/Test) |
+| `AGENT_HIJACKING` | 53 | 27 | 13 | 13 | 24.5% | 24.5% | ⚠️ LOW (<50 in Val/Test) |
+| `TOOL_ABUSE` | 4,910 | 3,440 | 735 | 735 | 15.0% | 15.0% | ✅ OK (Balanced) |
+| `CONTEXT_MANIPULATION` | 103 | 63 | 20 | 20 | 19.4% | 19.4% | ⚠️ LOW (<50 in Val/Test) |
 
 #### Binary `is_malicious` Distribution Across Splits
-- **Train**: Malicious = 98,088 (93.49%), Benign = 6,830 (6.51%)
-- **Validation**: Malicious = 21,141 (94.04%), Benign = 1,341 (5.96%)
-- **Test**: Malicious = 21,870 (97.27%), Benign = 613 (2.73%)
+- **Train**: Malicious = 98,810 (94.14%), Benign = 6,149 (5.86%)
+- **Validation**: Malicious = 21,142 (94.13%), Benign = 1,318 (5.87%)
+- **Test**: Malicious = 21,147 (94.14%), Benign = 1,317 (5.86%)

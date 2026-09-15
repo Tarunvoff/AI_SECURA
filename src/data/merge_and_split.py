@@ -415,14 +415,13 @@ def step_7d_stratified_split(
         "test": target_test_rows,
     }
 
-    # Count dataset-level totals per label
+    # Count dataset-level totals per label (including explicit BENIGN tracking)
     dataset_label_totals = Counter()
     for r in deduped_rows:
+        if not r.get("is_malicious"):
+            dataset_label_totals["BENIGN"] += 1
         for t in r.get("threats", []):
             dataset_label_totals[t] += 1
-
-    # Sort labels by rarity (least frequent first)
-    sorted_labels_by_rarity = [lbl for lbl, _ in dataset_label_totals.most_common()[::-1]]
 
     split_rows: Dict[str, List[Dict[str, Any]]] = {"train": [], "validation": [], "test": []}
     split_cluster_ids: Dict[str, Set[str]] = {"train": set(), "validation": set(), "test": set()}
@@ -433,30 +432,57 @@ def step_7d_stratified_split(
     split_mal_counts: Dict[str, Counter] = {"train": Counter(), "validation": Counter(), "test": Counter()}
     split_row_counts: Dict[str, int] = {"train": 0, "validation": 0, "test": 0}
 
-    # Sort clusters: clusters containing rare labels first, then by cluster size
-    def cluster_sort_key(c_rows: List[Dict[str, Any]]):
-        c_threats = set()
+    # Partition clusters into large (>=500) and small (<500)
+    # Giant clusters (size ~1500) MUST go to train because assigning a 1500-item cluster to val or test
+    # (whose total label budget is ~330-730) causes massive ~60-70% label concentration skew in a single 15% split.
+    large_clusters = [c for c in cluster_list if len(c) >= 500]
+    small_clusters = [c for c in cluster_list if len(c) < 500]
+
+    print(f"Pre-assigning {len(large_clusters)} giant clusters (>=500 items) to train to preserve 70/15/15 label quotas...")
+    for c_rows in large_clusters:
+        split_rows["train"].extend(c_rows)
+        split_row_counts["train"] += len(c_rows)
         for r in c_rows:
-            c_threats.update(r.get("threats", []))
-        # Find highest rarity rank (0 is rarest)
+            is_mal = r.get("is_malicious", False)
+            split_mal_counts["train"][is_mal] += 1
+            if not is_mal:
+                split_label_counts["train"]["BENIGN"] += 1
+            for t in r.get("threats", []):
+                split_label_counts["train"][t] += 1
+            split_cluster_ids["train"].add(r["cluster_id"])
+            if r.get("source_group_id"):
+                split_group_ids["train"].add(r["source_group_id"])
+            split_text_hashes["train"].add(compute_text_hash(r["text"]))
+
+    # Sort small clusters by rarest label first
+    sorted_labels_by_rarity = [lbl for lbl, _ in dataset_label_totals.most_common()[::-1]]
+
+    def cluster_sort_key(c_rows: List[Dict[str, Any]]):
+        c_labels = set()
+        if not c_rows[0].get("is_malicious"):
+            c_labels.add("BENIGN")
+        for r in c_rows:
+            c_labels.update(r.get("threats", []))
         rarest_rank = len(sorted_labels_by_rarity)
         for rank, lbl in enumerate(sorted_labels_by_rarity):
-            if lbl in c_threats:
+            if lbl in c_labels:
                 rarest_rank = rank
                 break
         return (rarest_rank, -len(c_rows))
 
-    sorted_clusters = sorted(cluster_list, key=cluster_sort_key)
+    sorted_small_clusters = sorted(small_clusters, key=cluster_sort_key)
 
-    # Iterative greedy multi-objective assignment
-    for c_rows in sorted_clusters:
+    # Iterative greedy multi-objective assignment for all remaining clusters
+    for c_rows in sorted_small_clusters:
         c_size = len(c_rows)
         c_mal_true = sum(1 for r in c_rows if r.get("is_malicious") is True)
         c_mal_false = sum(1 for r in c_rows if r.get("is_malicious") is False)
-        c_threat_counts = Counter()
+        c_label_counts = Counter()
         for r in c_rows:
+            if not r.get("is_malicious"):
+                c_label_counts["BENIGN"] += 1
             for t in r.get("threats", []):
-                c_threat_counts[t] += 1
+                c_label_counts[t] += 1
 
         # Evaluate multi-objective need score for adding cluster to train vs val vs test
         best_split = None
@@ -470,17 +496,17 @@ def step_7d_stratified_split(
             # Row need: 1.0 when empty, 0.0 when target reached, negative when overfilled
             row_need = (target_r - current_r) / max(target_r, 1)
 
-            # Label need for threats present in this cluster
-            if c_threat_counts:
+            # Label need across all active labels (threats + BENIGN)
+            if c_label_counts:
                 label_needs = []
-                for lbl, cnt in c_threat_counts.items():
+                for lbl, cnt in c_label_counts.items():
                     lbl_tot = dataset_label_totals[lbl]
                     lbl_target = lbl_tot * prop
                     if lbl_target > 0:
                         lbl_current = split_label_counts[s_name][lbl]
                         label_needs.append((lbl_target - lbl_current) / max(lbl_target, 1.0))
                 avg_label_need = sum(label_needs) / len(label_needs) if label_needs else 0.0
-                total_need = (avg_label_need * 2.0) + row_need
+                total_need = (avg_label_need * 4.0) + row_need
             else:
                 total_need = row_need
 
@@ -493,7 +519,7 @@ def step_7d_stratified_split(
         split_row_counts[best_split] += c_size
         split_mal_counts[best_split][True] += c_mal_true
         split_mal_counts[best_split][False] += c_mal_false
-        for lbl, cnt in c_threat_counts.items():
+        for lbl, cnt in c_label_counts.items():
             split_label_counts[best_split][lbl] += cnt
 
         for r in c_rows:
