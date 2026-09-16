@@ -33,7 +33,7 @@ class SecurityClassifier(nn.Module):
         self.pretrained_model_name = pretrained_model_name
 
         self.config = AutoConfig.from_pretrained(pretrained_model_name)
-        self.encoder = AutoModel.from_pretrained(pretrained_model_name, config=self.config)
+        self.encoder = AutoModel.from_pretrained(pretrained_model_name, config=self.config, torch_dtype=torch.float32)
 
         self.dropout = nn.Dropout(dropout_rate)
         self.classifier = nn.Linear(self.config.hidden_size, self.num_labels)
@@ -69,7 +69,7 @@ class SecurityClassifier(nn.Module):
         # Use first token [CLS] representation (last_hidden_state[:, 0, :])
         cls_rep = encoder_outputs.last_hidden_state[:, 0, :]
         dropped = self.dropout(cls_rep)
-        logits = self.classifier(dropped)
+        logits = self.classifier(dropped.to(self.classifier.weight.dtype))
         return logits
 
     def count_parameters(self) -> Tuple[int, int]:
