@@ -24,7 +24,7 @@ EVAL_RAW_DIR = Path("data/eval_only/agentharm_raw")
 
 def load_agentharm_eval_benchmark(
     config_name: str = "harmful",
-    split: str = "test",
+    split: str = "test_public",
     cache_locally: bool = True,
 ) -> List[Dict[str, Any]]:
     """
@@ -32,12 +32,14 @@ def load_agentharm_eval_benchmark(
     
     Args:
         config_name: Config name ('harmful', 'harmless_benign', or 'chat').
-        split: Benchmark split ('test', 'val', etc.).
+        split: Benchmark split ('test_public', 'validation').
         cache_locally: Whether to save raw JSONL to data/eval_only/agentharm_raw/
         
     Returns:
         List of standardized evaluation sample dictionaries.
     """
+    if split == "test":
+        split = "test_public"
     logger.info(f"Loading {AGENTHARM_DATASET_ID} config '{config_name}', split '{split}' for evaluation...")
     ds = load_dataset(AGENTHARM_DATASET_ID, config_name, split=split)
 
