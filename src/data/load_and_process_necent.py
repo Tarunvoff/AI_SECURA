@@ -181,10 +181,27 @@ def main():
     # 5. Record counts BEFORE merge
     counts_before = count_labels_in_splits()
 
-    # 6. Step 4: Run Necent adapter
+    # 6. Step 4: Run Base Adapters (if not yet processed) and Necent Adapter
     print("\n" + "=" * 80)
-    print("STEP 4: RUNNING NECENT ADAPTER")
+    print("STEP 4: RUNNING BASE AND NECENT ADAPTERS")
     print("=" * 80)
+
+    from src.data.adapters.neuralchemy_2b_adapter import process_neuralchemy_2b
+    from src.data.adapters.neuralchemy_2a_adapter import process_neuralchemy_2a
+    from src.data.adapters.mosscap_adapter import process_mosscap
+
+    proc_dir = PROJECT_ROOT / "data" / "processed"
+    if not (proc_dir / "neuralchemy_2b_train.jsonl").exists():
+        print("Processing neuralchemy_2b adapter...")
+        process_neuralchemy_2b()
+    if not (proc_dir / "neuralchemy_2a_train.jsonl").exists():
+        print("Processing neuralchemy_2a adapter...")
+        process_neuralchemy_2a()
+    if not (proc_dir / "mosscap_train.jsonl").exists():
+        print("Processing mosscap adapter...")
+        process_mosscap()
+
+    print("Processing Necent adapter (InjecAgent -> AGENT_HIJACKING, ToolEmu -> TOOL_ABUSE)...")
     necent_stats = process_necent_dataset()
 
     # 7. Step 5: GPU Deduplication, Clustering, and Re-splitting
