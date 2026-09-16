@@ -16,7 +16,6 @@ from transformers import AutoTokenizer
 from configs.labels import NUM_LABELS, THREAT_LABELS
 from src.eval.agentharm_loader import load_agentharm_eval_benchmark
 from src.eval.wildguardmix_loader import load_wildguard_benchmark
-from src.eval.mindgard_loader import load_mindgard_eval_benchmark
 from src.models.security_classifier import SecurityClassifier
 
 logger = logging.getLogger(__name__)
@@ -86,7 +85,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate model on held-out external security benchmarks")
     parser.add_argument("--model-path", type=str, default="models/checkpoints/best_model")
     parser.add_argument("--thresholds-path", type=str, default="thresholds.json")
-    parser.add_argument("--benchmark", type=str, choices=["agentharm", "wildguard", "mindgard", "all"], default="all")
+    parser.add_argument("--benchmark", type=str, choices=["agentharm", "wildguard", "all"], default="all")
     parser.add_argument("--batch-size", type=int, default=32)
     args = parser.parse_args()
 
@@ -113,8 +112,6 @@ def main():
         benchmarks_to_run.append(("AgentHarm (ai-safety-institute/AgentHarm)", load_agentharm_eval_benchmark))
     if args.benchmark in ["wildguard", "all"]:
         benchmarks_to_run.append(("WildGuardMix (allenai/wildguardmix)", load_wildguard_benchmark))
-    if args.benchmark in ["mindgard", "all"]:
-        benchmarks_to_run.append(("Mindgard Evasion (Mindgard/evaded-samples)", load_mindgard_eval_benchmark))
 
     for name, loader_fn in benchmarks_to_run:
         print("\n" + "=" * 80)

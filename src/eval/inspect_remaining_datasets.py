@@ -76,47 +76,13 @@ def inspect_wildguardmix():
             print(f"Saved raw eval/supplementary data to: {out_path}")
 
     except Exception as e:
-        print(f"Status: BLOCKED ON ACCESS / GATED")
-        print(f"Error details: {e}")
-
-
-def inspect_mindgard():
-    """3. Inspect and download Mindgard (CC-BY-NC-4.0 non-commercial, adversarial evasion eval)."""
-    print("\n" + "=" * 80)
-    print("3. DATASET: Mindgard/evaded-prompt-injection-and-jailbreak-samples (CC-BY-NC-4.0)")
-    print("=" * 80)
-    out_dir = EVAL_BASE_DIR / "mindgard_raw"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    hf_token = os.environ.get("HF_TOKEN")
-
-    try:
-        ds = load_dataset("Mindgard/evaded-prompt-injection-and-jailbreak-samples", token=hf_token)
-        print(f"Status: Access granted.")
-        for split_name, split_data in ds.items():
-            print(f"\nSplit: {split_name} | Total rows: {len(split_data):,d}")
-            print(f"Columns: {split_data.column_names}")
-            print(f"Sample row (0):\n{json.dumps(dict(split_data[0]), indent=2, ensure_ascii=False)[:350]}...")
-
-            out_path = out_dir / f"mindgard_{split_name}.jsonl"
-            with open(out_path, "w", encoding="utf-8") as f:
-                for row in split_data:
-                    f.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
-            print(f"Saved raw adversarial eval data to: {out_path}")
-
-    except Exception as e:
-        print(f"Status: BLOCKED ON ACCESS / GATED")
-        print(f"Error details: {e}")
-
-
 def main():
     print("=" * 80)
-    print("DOWNLOADING AND INSPECTING REMAINING FLAGGED DATASETS")
+    print("DOWNLOADING AND INSPECTING REMAINING FLAGGED DATASETS (AGENTHARM, WILDGUARDMIX)")
     print("=" * 80)
 
     inspect_agentharm()
     inspect_wildguardmix()
-    inspect_mindgard()
 
     print("\n" + "=" * 80)
     print("INSPECTION SUMMARY & VERIFICATION")
