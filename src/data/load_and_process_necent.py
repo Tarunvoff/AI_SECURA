@@ -24,7 +24,12 @@ if sys.platform == "win32":
 
 from configs.labels import THREAT_LABELS
 from src.data.adapters.necent_adapter import process_necent_dataset, DATASET_ID, AGENTHARM_CANARY
-from src.data.merge_and_split import run_step6_merge, run_step7_dedup_and_split
+from src.data.merge_and_split import (
+    step_6_merge,
+    step_7a_exact_dedup,
+    step_7c_near_dedup_and_cluster,
+    step_7d_stratified_split,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -191,10 +196,12 @@ def main():
     print(f"[GPU Confirmation] Embedding / clustering pipeline running on: {torch.cuda.get_device_name(0)}")
 
     # Run Step 6 merge
-    run_step6_merge()
+    merged_rows = step_6_merge()
 
     # Run Step 7 dedup and split
-    run_step7_dedup_and_split()
+    deduped_rows, dedup_stats = step_7a_exact_dedup(merged_rows)
+    clustered_rows, cluster_stats = step_7c_near_dedup_and_cluster(deduped_rows, threshold=0.95)
+    split_res = step_7d_stratified_split(clustered_rows, cluster_stats["root_to_rows"])
 
     # 8. Record counts AFTER merge
     counts_after = count_labels_in_splits()
