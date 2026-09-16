@@ -28,23 +28,24 @@ def inspect_agentharm():
     out_dir = EVAL_BASE_DIR / "agentharm_raw"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        ds = load_dataset("ai-safety-institute/AgentHarm")
-        print(f"Status: Access granted / Publicly available.")
-        for split_name, split_data in ds.items():
-            print(f"\nSplit: {split_name} | Total rows: {len(split_data):,d}")
-            print(f"Columns: {split_data.column_names}")
-            print(f"Sample row (0):\n{json.dumps(dict(split_data[0]), indent=2, ensure_ascii=False)[:350]}...")
+    for config_name in ["harmful", "harmless_benign"]:
+        try:
+            print(f"\n--- Config: '{config_name}' ---")
+            ds = load_dataset("ai-safety-institute/AgentHarm", config_name)
+            print(f"Status: Access granted / Publicly available.")
+            for split_name, split_data in ds.items():
+                print(f"Split: {split_name} | Total rows: {len(split_data):,d}")
+                print(f"Columns: {split_data.column_names}")
+                print(f"Sample row (0):\n{json.dumps(dict(split_data[0]), indent=2, ensure_ascii=False)[:350]}...")
 
-            out_path = out_dir / f"agentharm_{split_name}.jsonl"
-            with open(out_path, "w", encoding="utf-8") as f:
-                for row in split_data:
-                    f.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
-            print(f"Saved raw eval data to: {out_path}")
+                out_path = out_dir / f"agentharm_{config_name}_{split_name}.jsonl"
+                with open(out_path, "w", encoding="utf-8") as f:
+                    for row in split_data:
+                        f.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
+                print(f"Saved raw eval data to: {out_path}")
 
-    except Exception as e:
-        print(f"Status: FAILED / BLOCKED")
-        print(f"Error details: {e}")
+        except Exception as e:
+            print(f"Config '{config_name}' failed: {e}")
 
 
 def inspect_wildguardmix():
@@ -76,6 +77,10 @@ def inspect_wildguardmix():
             print(f"Saved raw eval/supplementary data to: {out_path}")
 
     except Exception as e:
+        print(f"Status: BLOCKED ON ACCESS / GATED")
+        print(f"Error details: {e}")
+
+
 def main():
     print("=" * 80)
     print("DOWNLOADING AND INSPECTING REMAINING FLAGGED DATASETS (AGENTHARM, WILDGUARDMIX)")
