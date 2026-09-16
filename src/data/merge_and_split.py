@@ -104,7 +104,7 @@ def validate_canonical_row(row: Dict[str, Any], row_idx: int, source_file: str) 
             errors.append("is_malicious=True but empty threats list")
     if "severity" not in row or row["severity"] not in VALID_SEVERITIES:
         errors.append(f"Invalid 'severity': {row.get('severity')}")
-    if "source" not in row or row["source"] not in {"neuralchemy_2b", "neuralchemy_2a", "mosscap"}:
+    if "source" not in row or not (row["source"] in {"neuralchemy_2b", "neuralchemy_2a", "mosscap"} or row["source"].startswith("necent")):
         errors.append(f"Invalid 'source': {row.get('source')}")
     if "quarantined" not in row or row["quarantined"] is not False:
         errors.append(f"Invalid 'quarantined' for unified row: {row.get('quarantined')}")
@@ -128,6 +128,11 @@ def step_6_merge() -> List[Dict[str, Any]]:
         PROCESSED_DIR / "mosscap_validation.jsonl",
         PROCESSED_DIR / "mosscap_test.jsonl",
     ]
+
+    # Include Necent unified output if present
+    necent_file = PROCESSED_DIR / "necent_unified.jsonl"
+    if necent_file.exists():
+        input_files.append(necent_file)
 
     merged_rows = []
     val_errors = []
