@@ -298,6 +298,18 @@ class StrictVerificationPipeline:
         if necent_file.exists():
             adapter_files.append(("necent", necent_file, "Necent/llm-jailbreak-prompt-injection-dataset"))
 
+        wg_file = processed_dir / "wildguardmix_jailbreak.jsonl"
+        if wg_file.exists():
+            adapter_files.append(("wildguardmix", wg_file, "allenai/wildguardmix"))
+
+        syn_ih_file = processed_dir / "synthetic_instruction_hijacking.jsonl"
+        if syn_ih_file.exists():
+            adapter_files.append(("synthetic_instruction_hijacking", syn_ih_file, "synthetic_grounded_generator"))
+
+        syn_cm_file = processed_dir / "synthetic_context_manipulation.jsonl"
+        if syn_cm_file.exists():
+            adapter_files.append(("synthetic_context_manipulation", syn_cm_file, "synthetic_grounded_generator"))
+
         loaded_rows: List[Dict[str, Any]] = []
         source_group_counts = defaultdict(lambda: {"raw": 0, "retained": 0, "removed": 0, "labels_before": Counter(), "labels_after": Counter()})
 

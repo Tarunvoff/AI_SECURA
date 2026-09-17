@@ -104,8 +104,11 @@ def validate_canonical_row(row: Dict[str, Any], row_idx: int, source_file: str) 
             errors.append("is_malicious=True but empty threats list")
     if "severity" not in row or row["severity"] not in VALID_SEVERITIES:
         errors.append(f"Invalid 'severity': {row.get('severity')}")
-    if "source" not in row or not (row["source"] in {"neuralchemy_2b", "neuralchemy_2a", "mosscap"} or row["source"].startswith("necent")):
-        errors.append(f"Invalid 'source': {row.get('source')}")
+    # Check source validity
+    src_val = row.get("source") or row.get("source_dataset")
+    valid_src_prefixes = ("neuralchemy", "mosscap", "necent", "wildguardmix", "synthetic_")
+    if not src_val or not any(str(src_val).startswith(p) for p in valid_src_prefixes):
+        errors.append(f"Invalid 'source': {src_val}")
     if "quarantined" not in row or row["quarantined"] is not False:
         errors.append(f"Invalid 'quarantined' for unified row: {row.get('quarantined')}")
     return errors
@@ -133,6 +136,19 @@ def step_6_merge() -> List[Dict[str, Any]]:
     necent_file = PROCESSED_DIR / "necent_unified.jsonl"
     if necent_file.exists():
         input_files.append(necent_file)
+
+    # Include WildGuardMix and synthetic augmentations if present
+    wg_file = PROCESSED_DIR / "wildguardmix_jailbreak.jsonl"
+    if wg_file.exists():
+        input_files.append(wg_file)
+
+    syn_ih_file = PROCESSED_DIR / "synthetic_instruction_hijacking.jsonl"
+    if syn_ih_file.exists():
+        input_files.append(syn_ih_file)
+
+    syn_cm_file = PROCESSED_DIR / "synthetic_context_manipulation.jsonl"
+    if syn_cm_file.exists():
+        input_files.append(syn_cm_file)
 
     merged_rows = []
     val_errors = []
