@@ -162,12 +162,8 @@ def export_hand_review_samples(
     return out_file
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Quality Control & GPU Diversity Auditor")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--model-name", type=str, default="microsoft/deberta-v3-base")
-    args = parser.parse_args()
-
+def run_quality_control(device: str = "cuda", model_name: str = "microsoft/deberta-v3-base") -> Dict[str, Any]:
+    """Runs full quality control and diversity audit over generated datasets."""
     target_files = [
         ("INSTRUCTION_HIJACKING", PROCESSED_DIR / "synthetic_instruction_hijacking.jsonl"),
         ("CONTEXT_MANIPULATION", PROCESSED_DIR / "synthetic_context_manipulation.jsonl"),
@@ -177,6 +173,8 @@ def main():
     print("=" * 90)
     print("QUALITY CONTROL & DIVERSITY AUDIT REPORT")
     print("=" * 90)
+
+    audit_summary = {}
 
     for label_title, fpath in target_files:
         if not fpath.exists():
@@ -202,20 +200,36 @@ def main():
 
         # 2. Embedding Cosine Similarity (GPU)
         try:
-            embed_stats = compute_gpu_embedding_diversity(texts, model_name=args.model_name, device_str=args.device)
-            print(f"  [Dense Semantic Cosine Similarity ({args.device.upper()})]:")
+            embed_stats = compute_gpu_embedding_diversity(texts, model_name=model_name, device_str=device)
+            print(f"  [Dense Semantic Cosine Similarity ({device.upper()})]:")
             print(f"    - Mean Cosine Similarity:   {embed_stats['mean_cosine_similarity']:.4f} (Healthy variation: < 0.75)")
             print(f"    - Median Cosine Similarity: {embed_stats['median_cosine_similarity']:.4f}")
             print(f"    - 75th Percentile:          {embed_stats['p75_cosine_similarity']:.4f}")
             print(f"    - Max Cosine Similarity:    {embed_stats['max_cosine_similarity']:.4f}")
         except Exception as e:
+            embed_stats = {"error": str(e)}
             print(f"  [GPU Embedding Audit Skipped/Error]: {e}")
+
+        audit_summary[label_title] = {
+            "count": len(texts),
+            "jaccard": jaccard_stats,
+            "embeddings": embed_stats,
+        }
 
     # Export review samples
     review_path = export_hand_review_samples([f for _, f in target_files])
     print("\n" + "=" * 90)
     print(f"Hand-Review Sample Package generated at: {review_path}")
     print("=" * 90)
+    return audit_summary
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Quality Control & GPU Diversity Auditor")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--model-name", type=str, default="microsoft/deberta-v3-base")
+    args = parser.parse_args()
+    run_quality_control(device=args.device, model_name=args.model_name)
 
 
 if __name__ == "__main__":

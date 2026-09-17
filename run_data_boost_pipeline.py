@@ -25,7 +25,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.data.adapters.wildguardmix_adapter import process_wildguardmix
 from src.data.generators.instruction_hijacking_generator import generate_instruction_hijacking_dataset
 from src.data.generators.context_manipulation_generator import generate_context_manipulation_dataset
-from src.data.generators.quality_control import main as run_quality_control
+from src.data.generators.quality_control import run_quality_control
 from src.data.merge_and_split import main as run_merge_and_split
 from src.eval.strict_retrain_and_verify import StrictVerificationPipeline
 
@@ -71,7 +71,7 @@ def main():
         # Step 4: Quality Control & Diversity Audit
         print("\n>>> STEP 4: Running Quality Control & GPU Diversity Auditor...")
         try:
-            run_quality_control()
+            run_quality_control(device=args.device)
         except Exception as e:
             logger.warning(f"Quality control note: {e}")
 
