@@ -86,6 +86,18 @@ def compute_text_hash(text: str) -> str:
 def validate_canonical_row(row: Dict[str, Any], row_idx: int, source_file: str) -> List[str]:
     """Validates that a row conforms strictly to the canonical schema."""
     errors = []
+    
+    # Normalize source / source_dataset
+    src_val = row.get("source") or row.get("source_dataset")
+    if src_val:
+        row["source"] = str(src_val)
+        row["source_dataset"] = str(src_val)
+
+    # Normalize threats / attack_types
+    threats_val = row.get("threats") if "threats" in row else row.get("attack_types", [])
+    row["threats"] = threats_val
+    row["attack_types"] = threats_val
+
     if "id" not in row or not isinstance(row["id"], str) or not row["id"].strip():
         errors.append(f"Invalid or missing 'id': {row.get('id')}")
     if "text" not in row or not isinstance(row["text"], str) or len(row["text"].strip()) == 0:
@@ -105,7 +117,6 @@ def validate_canonical_row(row: Dict[str, Any], row_idx: int, source_file: str) 
     if "severity" not in row or row["severity"] not in VALID_SEVERITIES:
         errors.append(f"Invalid 'severity': {row.get('severity')}")
     # Check source validity
-    src_val = row.get("source") or row.get("source_dataset")
     valid_src_prefixes = ("neuralchemy", "mosscap", "necent", "wildguardmix", "synthetic_")
     if not src_val or not any(str(src_val).startswith(p) for p in valid_src_prefixes):
         errors.append(f"Invalid 'source': {src_val}")
