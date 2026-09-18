@@ -310,6 +310,14 @@ class StrictVerificationPipeline:
         if syn_cm_file.exists():
             adapter_files.append(("synthetic_context_manipulation", syn_cm_file, "synthetic_grounded_generator"))
 
+        syn_ta_file = processed_dir / "synthetic_tool_abuse.jsonl"
+        if syn_ta_file.exists():
+            adapter_files.append(("synthetic_tool_abuse", syn_ta_file, "synthetic_grounded_generator"))
+
+        syn_ii_file = processed_dir / "synthetic_indirect_injection.jsonl"
+        if syn_ii_file.exists():
+            adapter_files.append(("synthetic_indirect_injection", syn_ii_file, "synthetic_grounded_generator"))
+
         loaded_rows: List[Dict[str, Any]] = []
         source_group_counts = defaultdict(lambda: {"raw": 0, "retained": 0, "removed": 0, "labels_before": Counter(), "labels_after": Counter()})
 
@@ -662,8 +670,10 @@ class StrictVerificationPipeline:
         print(f"Tokenizer:              {self.tokenizer.__class__.__name__}")
         print(f"Total Parameters:       {total_params:>12,d}")
         print(f"Trainable Parameters:   {trainable_params:>12,d}")
+        grad_accum_steps = getattr(self.args, "gradient_accumulation_steps", 2)
         print(f"Batch Size:             {self.args.batch_size}")
-        print(f"Gradient Accumulation:  1")
+        print(f"Gradient Accumulation:  {grad_accum_steps}")
+        print(f"Effective Batch Size:   {self.args.batch_size * grad_accum_steps}")
         print(f"Learning Rate:          {self.args.lr}")
         print(f"Epochs:                 {self.args.epochs}")
         print(f"Max Sequence Length:    {self.args.max_length}")
@@ -682,7 +692,8 @@ class StrictVerificationPipeline:
 
         # Full Training Run
         optimizer = torch.optim.AdamW(model.parameters(), lr=self.args.lr, weight_decay=0.01)
-        total_steps = len(train_loader) * self.args.epochs
+        effective_epoch_steps = math.ceil(len(train_loader) / grad_accum_steps)
+        total_steps = effective_epoch_steps * self.args.epochs
         warmup_steps = int(0.10 * total_steps)
         scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
         scaler = torch.amp.GradScaler("cuda", enabled=(self.device.type == "cuda"))
@@ -699,23 +710,27 @@ class StrictVerificationPipeline:
             running_loss = 0.0
             start_time = time.time()
             total_epoch_steps = len(train_loader)
+            optimizer.zero_grad()
 
             for step, batch in enumerate(train_loader, start=1):
                 input_ids = batch["input_ids"].to(self.device)
                 attention_mask = batch["attention_mask"].to(self.device)
                 labels = batch["labels"].to(self.device)
 
-                optimizer.zero_grad()
                 with torch.amp.autocast(device_type="cuda" if self.device.type == "cuda" else "cpu", enabled=(self.device.type == "cuda")):
                     logits = model(input_ids=input_ids, attention_mask=attention_mask)
                     loss = criterion(logits, labels)
+                    scaled_loss = loss / grad_accum_steps
 
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                scaler.step(optimizer)
-                scaler.update()
-                scheduler.step()
+                scaler.scale(scaled_loss).backward()
+
+                if step % grad_accum_steps == 0 or step == total_epoch_steps:
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    scaler.step(optimizer)
+                    scaler.update()
+                    scheduler.step()
+                    optimizer.zero_grad()
 
                 running_loss += loss.item() * input_ids.size(0)
 

@@ -8,7 +8,7 @@ Checks:
 2. GPU-Accelerated Sentence Embedding Cosine Similarity Matrix:
    - Explicitly asserts `torch.cuda.is_available()` when run on GPU.
    - Calculates pairwise cosine similarities across generated texts.
-   - Validates that average pairwise similarity is healthy (< 0.70) and does not exhibit template collapse.
+   - Validates that average pairwise similarity is healthy (< 0.75) and does not exhibit template collapse.
 3. Hand-Review Exporter:
    - Dumps 30 random samples per category to `data/eval_only/hand_review_samples.jsonl`
    - Formats clean console previews for manual inspection.
@@ -101,24 +101,33 @@ def compute_gpu_embedding_diversity(
     else:
         sample_texts = texts
 
-    embeddings_list = []
+    embeddings = []
     with torch.no_grad():
         for i in range(0, len(sample_texts), batch_size):
-            batch_texts = sample_texts[i : i + batch_size]
-            encoded = tokenizer(batch_texts, padding=True, truncation=True, max_length=256, return_tensors="pt").to(device)
-            out = encoder(input_ids=encoded["input_ids"], attention_mask=encoded["attention_mask"])
-            # Mean pooling over active tokens
-            mask = encoded["attention_mask"].unsqueeze(-1)
-            pooled = torch.sum(out.last_hidden_state * mask, dim=1) / torch.clamp(mask.sum(dim=1), min=1e-9)
-            normed = torch.nn.functional.normalize(pooled, p=2, dim=1)
-            embeddings_list.append(normed.cpu().numpy())
+            batch = sample_texts[i : i + batch_size]
+            encoded = tokenizer(
+                batch,
+                padding=True,
+                truncation=True,
+                max_length=256,
+                return_tensors="pt",
+            ).to(device)
+            out = encoder(**encoded)
+            # Mean pooling over non-padded tokens
+            attn_mask = encoded["attention_mask"].unsqueeze(-1)
+            mean_pooled = (out.last_hidden_state * attn_mask).sum(dim=1) / attn_mask.sum(dim=1).clamp(min=1e-9)
+            # Normalize to unit vector for fast cosine similarity via dot product
+            normed = torch.nn.functional.normalize(mean_pooled, p=2, dim=1)
+            embeddings.append(normed)
 
-    all_embs = np.vstack(embeddings_list)
-    # Cosine similarity matrix = E * E.T
-    sim_mat = np.dot(all_embs, all_embs.T)
-    # Extract upper triangle without diagonal
-    triu_indices = np.triu_indices_from(sim_mat, k=1)
-    pairwise_sims = sim_mat[triu_indices]
+    all_embeds = torch.cat(embeddings, dim=0)  # Shape: (N, D)
+    # Cosine similarity matrix on GPU
+    cos_sim_matrix = torch.matmul(all_embeds, all_embeds.T)  # Shape: (N, N)
+
+    # Extract upper triangular values without diagonal
+    n = cos_sim_matrix.size(0)
+    triu_indices = torch.triu_indices(n, n, offset=1)
+    pairwise_sims = cos_sim_matrix[triu_indices[0], triu_indices[1]].cpu().numpy()
 
     return {
         "mean_cosine_similarity": float(np.mean(pairwise_sims)),
@@ -131,12 +140,11 @@ def compute_gpu_embedding_diversity(
 
 def export_hand_review_samples(
     input_files: List[Path],
+    out_file: Path = REVIEW_DIR / "hand_review_samples.jsonl",
     samples_per_category: int = 30,
 ) -> Path:
-    """Exports structured sample JSONL for hand-checking."""
+    """Extracts a balanced slice of generated examples across all categories for human review."""
     REVIEW_DIR.mkdir(parents=True, exist_ok=True)
-    out_file = REVIEW_DIR / "hand_review_samples.jsonl"
-
     cat_to_rows = defaultdict(list)
     for fpath in input_files:
         if not fpath.exists():
@@ -165,6 +173,8 @@ def export_hand_review_samples(
 def run_quality_control(device: str = "cuda", model_name: str = "microsoft/deberta-v3-base") -> Dict[str, Any]:
     """Runs full quality control and diversity audit over generated datasets."""
     target_files = [
+        ("TOOL_ABUSE", PROCESSED_DIR / "synthetic_tool_abuse.jsonl"),
+        ("INDIRECT_PROMPT_INJECTION", PROCESSED_DIR / "synthetic_indirect_injection.jsonl"),
         ("INSTRUCTION_HIJACKING", PROCESSED_DIR / "synthetic_instruction_hijacking.jsonl"),
         ("CONTEXT_MANIPULATION", PROCESSED_DIR / "synthetic_context_manipulation.jsonl"),
         ("JAILBREAK (WildGuardMix)", PROCESSED_DIR / "wildguardmix_jailbreak.jsonl"),

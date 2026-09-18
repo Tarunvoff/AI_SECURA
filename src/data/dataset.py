@@ -16,7 +16,7 @@ from configs.labels import (
 )
 
 DEFAULT_MODEL_NAME = "microsoft/deberta-v3-base"
-DEFAULT_MAX_LENGTH = 256
+DEFAULT_MAX_LENGTH = 512
 
 
 class SecurityDataset(Dataset):

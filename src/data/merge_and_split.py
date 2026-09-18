@@ -161,6 +161,14 @@ def step_6_merge() -> List[Dict[str, Any]]:
     if syn_cm_file.exists():
         input_files.append(syn_cm_file)
 
+    syn_ta_file = PROCESSED_DIR / "synthetic_tool_abuse.jsonl"
+    if syn_ta_file.exists():
+        input_files.append(syn_ta_file)
+
+    syn_ii_file = PROCESSED_DIR / "synthetic_indirect_injection.jsonl"
+    if syn_ii_file.exists():
+        input_files.append(syn_ii_file)
+
     merged_rows = []
     val_errors = []
     src_counts = Counter()
