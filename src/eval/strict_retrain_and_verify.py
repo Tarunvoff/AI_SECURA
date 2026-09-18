@@ -318,6 +318,10 @@ class StrictVerificationPipeline:
         if syn_ii_file.exists():
             adapter_files.append(("synthetic_indirect_injection", syn_ii_file, "synthetic_grounded_generator"))
 
+        benign_file = processed_dir / "benign_unified.jsonl"
+        if benign_file.exists():
+            adapter_files.append(("benign_unified", benign_file, "synthetic_benign_adapter"))
+
         loaded_rows: List[Dict[str, Any]] = []
         source_group_counts = defaultdict(lambda: {"raw": 0, "retained": 0, "removed": 0, "labels_before": Counter(), "labels_after": Counter()})
 
@@ -328,6 +332,7 @@ class StrictVerificationPipeline:
                 run_adapters()
                 break
 
+        mosscap_collected = []
         for src_name, fpath, hf_id in adapter_files:
             if not fpath.exists():
                 raise FileNotFoundError(f"Required processed file missing: {fpath}")
@@ -354,14 +359,29 @@ class StrictVerificationPipeline:
                         "quarantined": False,
                     }
 
-                    # Track stats
-                    source_group_counts[src_name]["retained"] += 1
-                    if not norm_row["is_malicious"]:
-                        source_group_counts[src_name]["labels_after"]["BENIGN"] += 1
-                    for t in norm_row["attack_types"]:
-                        source_group_counts[src_name]["labels_after"][t] += 1
+                    if src_name == "mosscap":
+                        mosscap_collected.append(norm_row)
+                    else:
+                        source_group_counts[src_name]["retained"] += 1
+                        if not norm_row["is_malicious"]:
+                            source_group_counts[src_name]["labels_after"]["BENIGN"] += 1
+                        for t in norm_row["attack_types"]:
+                            source_group_counts[src_name]["labels_after"][t] += 1
+                        loaded_rows.append(norm_row)
 
-                    loaded_rows.append(norm_row)
+        # Handle Mosscap 25k sampling in provenance
+        if mosscap_collected:
+            random.seed(42)
+            if len(mosscap_collected) > 25000:
+                sampled_mosscap = random.sample(mosscap_collected, 25000)
+            else:
+                sampled_mosscap = mosscap_collected
+
+            for norm_row in sampled_mosscap:
+                source_group_counts["mosscap"]["retained"] += 1
+                for t in norm_row["attack_types"]:
+                    source_group_counts["mosscap"]["labels_after"][t] += 1
+                loaded_rows.append(norm_row)
 
         for src_name, stats in source_group_counts.items():
             print(f"\nDATASET: {src_name.upper()}")

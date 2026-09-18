@@ -117,7 +117,7 @@ def validate_canonical_row(row: Dict[str, Any], row_idx: int, source_file: str) 
     if "severity" not in row or row["severity"] not in VALID_SEVERITIES:
         errors.append(f"Invalid 'severity': {row.get('severity')}")
     # Check source validity
-    valid_src_prefixes = ("neuralchemy", "mosscap", "necent", "wildguardmix", "synthetic_")
+    valid_src_prefixes = ("neuralchemy", "mosscap", "necent", "wildguardmix", "synthetic_", "benign")
     if not src_val or not any(str(src_val).startswith(p) for p in valid_src_prefixes):
         errors.append(f"Invalid 'source': {src_val}")
     if "quarantined" not in row or row["quarantined"] is not False:
@@ -138,6 +138,10 @@ def step_6_merge() -> List[Dict[str, Any]]:
         PROCESSED_DIR / "neuralchemy_2a_train.jsonl",
         PROCESSED_DIR / "neuralchemy_2a_validation.jsonl",
         PROCESSED_DIR / "neuralchemy_2a_test.jsonl",
+    ]
+
+    # Include downsampled Mosscap (cap at 25,000 rows to prevent dataset skew)
+    mosscap_files = [
         PROCESSED_DIR / "mosscap_train.jsonl",
         PROCESSED_DIR / "mosscap_validation.jsonl",
         PROCESSED_DIR / "mosscap_test.jsonl",
@@ -147,6 +151,11 @@ def step_6_merge() -> List[Dict[str, Any]]:
     necent_file = PROCESSED_DIR / "necent_unified.jsonl"
     if necent_file.exists():
         input_files.append(necent_file)
+
+    # Include Benign dataset if present
+    benign_file = PROCESSED_DIR / "benign_unified.jsonl"
+    if benign_file.exists():
+        input_files.append(benign_file)
 
     # Include WildGuardMix and synthetic augmentations if present
     wg_file = PROCESSED_DIR / "wildguardmix_jailbreak.jsonl"
@@ -175,7 +184,10 @@ def step_6_merge() -> List[Dict[str, Any]]:
     mal_counts = Counter()
     lbl_counts = Counter()
 
+    # Load non-mosscap files
     for fpath in input_files:
+        if not fpath.exists():
+            continue
         with open(fpath, "r", encoding="utf-8") as f:
             for idx, line in enumerate(f):
                 line_str = line.strip()
@@ -190,6 +202,35 @@ def step_6_merge() -> List[Dict[str, Any]]:
                 mal_counts[row["is_malicious"]] += 1
                 for t in row.get("threats", []):
                     lbl_counts[t] += 1
+
+    # Load and downsample mosscap to 25,000 max
+    all_mosscap_rows = []
+    for fpath in mosscap_files:
+        if not fpath.exists():
+            continue
+        with open(fpath, "r", encoding="utf-8") as f:
+            for idx, line in enumerate(f):
+                line_str = line.strip()
+                if line_str:
+                    all_mosscap_rows.append(json.loads(line_str))
+
+    if all_mosscap_rows:
+        random.seed(42)
+        if len(all_mosscap_rows) > 25000:
+            sampled_mosscap = random.sample(all_mosscap_rows, 25000)
+            logger.info(f"Downsampled MOSSCAP from {len(all_mosscap_rows):,d} to 25,000 rows.")
+        else:
+            sampled_mosscap = all_mosscap_rows
+
+        for idx, row in enumerate(sampled_mosscap):
+            errs = validate_canonical_row(row, idx, "mosscap_sampled")
+            if errs:
+                val_errors.append(("mosscap_sampled", idx, errs))
+            merged_rows.append(row)
+            src_counts[row["source"]] += 1
+            mal_counts[row["is_malicious"]] += 1
+            for t in row.get("threats", []):
+                lbl_counts[t] += 1
 
     if val_errors:
         for fname, l_idx, errs in val_errors[:10]:
